@@ -24,6 +24,7 @@ $.ajax(globals.sources.professionsSrc).done(function (data) {
 let $doIt = $('.do-it');
 let $armadillo = $('.armadillo');
 let $pirate = $('.pirate');
+let $theContainerOfThePlaceWhereYouSeeIt = $('.the-container-of-the-place-where-you-see-it');
 let $goToTheSource = $('.go-to-the-source');
 let $goGoogleItYouLazySloth = $('.go-google-it-you-lazy-sloth');
 let wikiHref = 'https://en.wikipedia.org';
@@ -54,14 +55,31 @@ function findEm() {
     }
 }
 
+function getQuestion(thing) {
+    let indefiniteArticle = ['a', 'e', 'o', 'i', 'u'].includes(thing[0]) ? 'an' : 'a',
+        phrases = [
+            `WTF is ${indefiniteArticle} ${thing}?`,
+            `${thing}, seriously?`,
+            `${thing}? Give me a break!`,
+            `${thing}? Is that even a thing?`,
+            `I've never heard of ${indefiniteArticle} ${thing} in my life!`,
+            `Who did you call ${indefiniteArticle} ${thing}?`
+        ]
+
+    return phrases[Math.floor(Math.random() * phrases.length)]
+
+}
+
 function displayEm(choice) {
+    $theContainerOfThePlaceWhereYouSeeIt.empty();
     $armadillo.html(choice.animal.name);
     $pirate.html(choice.profession.name);
+
     $goToTheSource
         .attr('href', wikiHref + choice.animal.link)
-        .html(`WTF is the ${choice.animal.name} ?`);
-    $goGoogleItYouLazySloth.attr('href', googleSearchHref + choice.profession.name)
-        .html(`${choice.profession.name}? Seriously ??`);
+        .html(getQuestion(choice.animal.name));
+    $goGoogleItYouLazySloth.attr('href', googleSearchHref + choice.profession.name + ' profession')
+        .html(getQuestion(choice.profession.name));
     $.ajax(
         {
             crossDomain: true,
@@ -72,24 +90,17 @@ function displayEm(choice) {
         function (data) {
             console.log(data);
             let pages = data.query.pages,
-                imageName;
-            outer:
-                for (let i in pages) {
-                    let page = pages[i];
-                    for (let image of page.images) {
-                        console.log(image.title.toLowerCase());
-                        console.log(choice.animal.name.toLowerCase());
-                        if (image.title.toLowerCase().search(choice.animal.name.toLowerCase()) > -1) {
-                            imageName = image.title;
-
-                            continue outer;
-                        }
+                images = [];
+            for (let i in pages) {
+                let page = pages[i];
+                for (let image of page.images || []) {
+                    if (image.title.toLowerCase().search(choice.animal.name.toLowerCase()) > -1) {
+                        images.push(image.title);
                     }
                 }
-            console.log('imageName???', imageName);
-            if (imageName !== undefined) {
-                let wikiImageSrcLing = wikiImageSrc.replace('IMAGE_NAME', encodeURIComponent(imageName));
-                console.log(wikiImageSrcLing);
+            }
+            for (let image of images) {
+                let wikiImageSrcLing = wikiImageSrc.replace('IMAGE_NAME', encodeURIComponent(image));
                 $.ajax(
                     {
                         crossDomain: true,
@@ -97,15 +108,17 @@ function displayEm(choice) {
                         url: wikiImageSrcLing
                     }
                 ).done(function (data) {
-                    console.log("FOUND AN IMAGE???", data);
                     let pages = data.query.pages,
                         imageSrc;
                     for (let i in pages) {
                         let page = pages[i];
                         imageSrc = page.imageinfo[0].url;
                     }
-                    console.log(imageSrc);
-                    $('.the-container-of-the-place-where-you-see-it').css({'background-image': `url("${imageSrc}")`});
+                    if (imageSrc.search(/\.(webm|ogv|ogg)$/) >= 0) {
+                        $theContainerOfThePlaceWhereYouSeeIt.append($('<div>').append(`<video autoplay controls width="250"><source src="${imageSrc}"></video>`));
+                    } else {
+                        $theContainerOfThePlaceWhereYouSeeIt.append($('<div>').append(`<img src="${imageSrc}"/>`));
+                    }
                 })
             }
         }
